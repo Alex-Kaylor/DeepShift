@@ -109,6 +109,8 @@ def main():
                         help='type of rounding (default: deterministic)')
     parser.add_argument('-wb', '--weight-bits', type=int, default=5,
                         help='number of bits to represent the shift weights') 
+    parser.add_argument('-sb', '--shift-base', type=int, default=2,
+                        help='base of the wegiht representation')
     parser.add_argument('-j', '--workers', default=1, type=int, metavar='N',
                         help='number of data loading workers (default: 1)')
     parser.add_argument('--batch-size', type=int, default=64, metavar='N',
@@ -138,7 +140,7 @@ def main():
     
     parser.add_argument('--save-model', default=True, type=lambda x:bool(distutils.util.strtobool(x)), 
                         help='For Saving the current Model (default: True)')
-    parser.add_argument('--print-weights', default=True, type=lambda x:bool(distutils.util.strtobool(x)), 
+    parser.add_argument('--print-weights', default=True, type=lambda x:bool(x), 
                         help='For printing the weights of Model (default: True)')
     parser.add_argument('--desc', type=str, default=None,
                         help='description to append to model directory name')
@@ -167,7 +169,6 @@ def main():
                            transforms.Normalize((0.1307,), (0.3081,)) # transforms.Normalize((0,), (255,))
                        ])),
         batch_size=args.test_batch_size, shuffle=True, **kwargs)
-
     if args.model:
         if args.type or args.pretrained:
             print("WARNING: Ignoring arguments \"type\" and \"pretrained\" when creating model...")
@@ -188,7 +189,6 @@ def main():
         if args.pretrained:
             model.load_state_dict(torch.load("./models/mnist/simple_" + args.type + "/shift_0/weights.pth"))
             model = model.to(device)
-    
     model_rounded = None
 
     if args.weights:
@@ -201,9 +201,8 @@ def main():
             state_dict = saved_weights
             
         model.load_state_dict(state_dict)
-
     if args.shift_depth > 0:
-        model, _ = convert_to_shift(model, args.shift_depth, args.shift_type, convert_all_linear=(args.type != 'linear'), convert_weights=True, use_kernel = args.use_kernel, use_cuda = use_cuda, rounding = args.rounding, weight_bits = args.weight_bits)
+        model, _ = convert_to_shift(model, args.shift_depth, args.shift_type, args.shift_base, convert_all_linear=(args.type != 'linear'), convert_weights=True, use_kernel = args.use_kernel, use_cuda = use_cuda, rounding = args.rounding, weight_bits = args.weight_bits)
         model = model.to(device)
     elif args.use_kernel and args.shift_depth == 0:
         model = convert_to_unoptimized(model)
@@ -211,7 +210,6 @@ def main():
     elif args.use_kernel and args.shift_depth == 0:
         model = convert_to_unoptimized(model)
         model = model.to(device)
-    
     loss_fn = F.cross_entropy # F.nll_loss
     # define optimizer
     optimizer = None 
@@ -245,7 +243,7 @@ def main():
                   .format(args.resume))
         else:
             print("=> no checkpoint found at '{}'".format(args.resume))
-
+        
     # name model sub-directory "shift_all" if all layers are converted to shift layers
     conv2d_layers_count = count_layer_type(model, nn.Conv2d) + count_layer_type(model, unoptimized.UnoptimizedConv2d)
     linear_layers_count = count_layer_type(model, nn.Linear) + count_layer_type(model, unoptimized.UnoptimizedLinear)
@@ -256,7 +254,7 @@ def main():
             shift_label = "shift_ps"
     else:
         shift_label = "shift"
-
+    
     # name model sub-directory "shift_all" if all layers are converted to shift layers
     conv2d_layers_count = count_layer_type(model, nn.Conv2d)
     linear_layers_count = count_layer_type(model, nn.Linear)
@@ -264,7 +262,11 @@ def main():
         shift_label += "_all"
     else:
         shift_label += "_%s" % (args.shift_depth)
-
+    if (args.shift_base > 0):
+        shift_base = args.shift_base
+    else:
+        shift_base = 2
+    shift_label += "_sb_%s" % (args.shift_base)
     if (args.shift_depth > 0):
         shift_label += "_wb_%s" % (args.weight_bits)
 
@@ -277,7 +279,7 @@ def main():
 
     # if evaluating round weights to ensure that the results are due to powers of 2 weights
     if (args.evaluate):
-        model = round_shift_weights(model)
+        model = round_shift_weights(model, base)
 
     model_summary = None
     try:
@@ -319,7 +321,6 @@ def main():
         for epoch in range(1, args.epochs + 1):
             train_loss = train(args, model, device, train_loader, loss_fn, optimizer, epoch)
             test_loss, correct = test(args, model, device, test_loader, loss_fn)
-
             if (args.print_weights):
                 with open(os.path.join(model_dir, 'weights_log_' + str(epoch) + '.txt'), 'w') as weights_log_file:
                     with redirect_stdout(weights_log_file):
@@ -339,7 +340,7 @@ def main():
             train_log_csv.writerows(train_log)
 
         if (args.save_model):
-            model_rounded = round_shift_weights(model, clone=True)
+            model_rounded = round_shift_weights(model, shift_base, clone=True)
 
             torch.save(model_rounded, os.path.join(model_dir, "model.pth"))
             torch.save(model_rounded.state_dict(), os.path.join(model_dir, "weights.pth"))
@@ -360,7 +361,7 @@ def main():
                     print(param_tensor, "\t", model_rounded.state_dict()[param_tensor].size())
                     print(model_rounded.state_dict()[param_tensor])
                     print("")
-        
+
 if __name__ == '__main__':
     main()
     torch.cuda.empty_cache()

@@ -4,15 +4,16 @@ import deepshift.utils as utils
 
 class RoundPowerOf2(Function):
     @staticmethod 
-    def forward(ctx, input, stochastic=False):
-        return utils.round_power_of_2(input, stochastic)
+    def forward(ctx, input, z):
+        return utils.round_power_of_2(input, z[0], z[1])
 
     @staticmethod 
     def backward(ctx, grad_output):
         return grad_output, None
         
-def round_power_of_2(input, stochastic=False):
-    return RoundPowerOf2.apply(input, stochastic)
+def round_power_of_2(input, shift_base, stochastic=False):
+    t=input
+    return RoundPowerOf2.apply(t, [shift_base, stochastic])
 
 class RoundFixedPoint(Function):
     @staticmethod 

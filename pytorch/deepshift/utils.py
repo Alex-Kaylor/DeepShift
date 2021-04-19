@@ -8,8 +8,8 @@ def round_to_fixed(input, fraction_bits=16, integer_bits=16):
     assert integer_bits >= 1, integer_bits 
     if integer_bits == 1: 
         return torch.sign(input) - 1 
-    delta = math.pow(2.0, -(fraction_bits))
-    bound = math.pow(2.0, integer_bits-1) 
+    delta = math.pow(2, -(fraction_bits))
+    bound = math.pow(2, integer_bits-1) 
     min_val = - bound 
     max_val = bound - 1 
     rounded = torch.floor(input / delta) * delta
@@ -17,17 +17,17 @@ def round_to_fixed(input, fraction_bits=16, integer_bits=16):
     clipped_value = torch.clamp(rounded, min_val, max_val)
     return clipped_value 
 
-def get_shift_and_sign(x, rounding='deterministic'):
+def get_shift_and_sign(x, shift_base=4, rounding='deterministic'):
     sign = torch.sign(x)
     
     x_abs = torch.abs(x)
-    shift = round(torch.log(x_abs) / np.log(2), rounding)
+    shift = round(torch.log(x_abs) / np.log(shift_base), rounding)
     
     return shift, sign    
 
-def round_power_of_2(x, rounding='deterministic'):
-    shift, sign = get_shift_and_sign(x, rounding)    
-    x_rounded = (2.0 ** shift) * sign
+def round_power_of_2(x, shift_base=4, rounding='deterministic'):
+    shift, sign = get_shift_and_sign(x, shift_base, rounding)    
+    x_rounded = (shift_base ** shift) * sign
     return x_rounded
 
 def round(x, rounding='deterministic'):
@@ -45,7 +45,7 @@ class ConcWeight():
         self.bits = bits
 
 ##concatenate shift and sign together
-def compress_bits(shift, sign):
+def compress_bits(shift, sign, base):
     conc_weight = ConcWeight() 
 
     if len(shift.shape) == 2:
@@ -56,7 +56,7 @@ def compress_bits(shift, sign):
     shift[zero_sign_indices] = -32
     sign[zero_sign_indices] = +1
 
-    conc_weight.bits = math.ceil(torch.log( - torch.min(shift) + 1)/ np.log(2))
+    conc_weight.bits = math.ceil(torch.log( - torch.min(shift) + 1)/ np.log(base))
     # treat shift to the right as the default
     shift = shift * -1
     minimum = int(torch.min(shift))

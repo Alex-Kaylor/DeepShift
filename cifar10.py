@@ -39,6 +39,7 @@ import ctypes
 ctypes.cdll.LoadLibrary('caffe2_nvrtc.dll')
 
 import psutil
+import GPUtil
 import threading
 import pandas as pd 
 import datetime as dt
@@ -46,25 +47,32 @@ from distutils import util
 
 is_training = False
 is_testing = False
+log_epoch = -1
 training_perf = pd.DataFrame()
 testing_perf = pd.DataFrame()
 pid = os.getpid()
 proc = psutil.Process(pid=pid)
 proc.cpu_affinity([0])                   # Limit number of CPUs used for processing
 model_name = ''
+target_accuracy = 0.99
 
-loc_performance_profile_training = r"/home/alex/DeepShift/pytorch/performance_profiles_training.xlsx"
-loc_performance_accuracy_testing = r"/home/alex/DeepShift/pytorch/performance_v_accuracy_testing.xlsx"
+loc_performance_profile_training = r"C:\Users\mjzyl\OneDrive\Documents\GitHub\DeepShift\pytorch\performance_profiles_training.xlsx"
+loc_performance_accuracy_testing = r"C:\Users\mjzyl\OneDrive\Documents\GitHub\DeepShift\pytorch\performance_v_accuracy_testing.xlsx"
 
 def t_report_usage_training(name):
     wait = 0.1
     while True:
-        global training_perf, proc
+        global training_perf, proc, epoch
+        gpu_util, gpu_mem = GPUtil.showUtilization()
         training_perf = training_perf.append({
             'Time' : time.ctime(time.time()),
             'CPU%' : proc.cpu_percent()/len(proc.cpu_affinity()),
+            'GPU%' : sum(gpu_util),
+            'GPU_MEM%' : sum(gpu_mem),
             'RAM%' : proc.memory_percent(),
-            'NumCPUs' : len(proc.cpu_affinity())
+            'NumCPUs' : len(proc.cpu_affinity()),
+            'NumGPUs' : len(GPUtil.getGPUs()),
+            'Epoch' : log_epoch
         }, ignore_index=True)
         time.sleep(wait)
         
@@ -224,6 +232,8 @@ parser.add_argument('--desc', type=str, default=None,
 parser.add_argument('--use-kernel', type=lambda x:bool(distutils.util.strtobool(x)), default=False,
                     help='whether using custom shift kernel')
 
+parser.add_argument('-sb', '--shift-base', type=int, default=2,
+                    help='base of the wegiht representation')
 
 best_acc1 = 0
 
@@ -333,7 +343,7 @@ def main_worker(gpu, ngpus_per_node, args):
             model.load_state_dict(new_state_dict)
 
     if args.shift_depth > 0:
-        model, _ = convert_to_shift(model, args.shift_depth, args.shift_type, convert_weights = (args.pretrained != "none" or args.weights), use_kernel = args.use_kernel, rounding = args.rounding, weight_bits = args.weight_bits)
+        model, _ = convert_to_shift(model, args.shift_depth, args.shift_type, args.shift_base, convert_weights = (args.pretrained != "none" or args.weights), use_kernel = args.use_kernel, rounding = args.rounding, weight_bits = args.weight_bits)
     elif args.use_kernel and args.shift_depth == 0:
         model = convert_to_unoptimized(model)
 
@@ -441,7 +451,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     # if evaluating round weights to ensure that the results are due to powers of 2 weights
     if (args.evaluate):
-        model = round_shift_weights(model)
+        model = round_shift_weights(model, shift_base)
 
     cudnn.benchmark = True
 
@@ -471,12 +481,17 @@ def main_worker(gpu, ngpus_per_node, args):
 
     if (args.shift_depth > 0):
         shift_label += "_wb_%s" % (args.weight_bits)
-
+    if (args.shift_base > 0):
+        shift_base = args.shift_base
+    else:
+        shift_base = 2
+    shift_label += "_sb_%s" % (args.shift_base)
     if (args.desc is not None and len(args.desc) > 0):
         desc_label = "_%s" % (args.desc)
     else:
         desc_label = ""
 
+    global model_name # MZ addition
     model_name = '%s/%s%s' % (args.arch, shift_label, desc_label)
 
     if (args.save_model):
@@ -547,7 +562,7 @@ def main_worker(gpu, ngpus_per_node, args):
     
             ###################################################################################################################################
         # Start recording training usage metrics
-        global is_training
+        global is_training, log_epoch
         is_training = True
         t = report_usage_training()        ###################################################################################################################################
 
@@ -563,6 +578,7 @@ def main_worker(gpu, ngpus_per_node, args):
             train_log_csv.writerow(['epoch', 'train_loss', 'train_top1_acc', 'train_time', 'test_loss', 'test_top1_acc', 'test_time'])
 
         for epoch in range(args.start_epoch, args.epochs):
+            log_epoch = epoch
             if args.distributed:
                 train_sampler.set_epoch(epoch)
 
@@ -576,7 +592,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
             # train for one epoch
             print("current lr ", [param['lr'] for param in  optimizer.param_groups])
-            train_epoch_log = train(train_loader, model, criterion, optimizer, epoch, args)
+            train_epoch_log = train(train_loader, model, criterion, optimizer, epoch, args, shift_base)
             if (args.lr_schedule):
                 lr_scheduler.step()
 
@@ -627,7 +643,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 if is_best:
                     try:
                         if (args.save_model):
-                            model_rounded = round_shift_weights(model, clone=True)
+                            model_rounded = round_shift_weights(model, shift_base, clone=True)
 
                             torch.save(model_rounded.state_dict(), os.path.join(model_dir, "weights.pth"))
                             torch.save(model_rounded, os.path.join(model_dir, "model.pth"))
@@ -657,7 +673,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     if (args.print_weights):
         if(model_rounded is None):
-            model_rounded = round_shift_weights(model, clone=True)
+            model_rounded = round_shift_weights(model, shift_base, clone=True)
 
         with open(os.path.join(model_dir, 'weights_log.txt'), 'w') as weights_log_file:
             with redirect_stdout(weights_log_file):
@@ -670,7 +686,7 @@ def main_worker(gpu, ngpus_per_node, args):
                     print("")
 
 
-def train(train_loader, model, criterion, optimizer, epoch, args):
+def train(train_loader, model, criterion, optimizer, epoch, args, shift_base):
     batch_time = AverageMeter('Time', ':6.3f')
     data_time = AverageMeter('Data', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
@@ -704,7 +720,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         # compute gradient and do optimizer step
         optimizer.zero_grad()
         if(args.weight_decay > 0):
-            loss += shift_l2_norm(optimizer, args.weight_decay)
+            loss += shift_l2_norm(optimizer, shift_base, args.weight_decay)
         loss.backward()
         optimizer.step()
 
@@ -759,11 +775,11 @@ def validate(val_loader, model, criterion, args):
 
     return (losses.avg, top1.avg.cpu().numpy(), batch_time.avg)
 
-def shift_l2_norm(opt, weight_decay):
+def shift_l2_norm(opt, shift_base, weight_decay):
     shift_params = opt.param_groups[2]['params']
     l2_norm = 0
     for shift in shift_params:
-        l2_norm += torch.sum((2**shift)**2)
+        l2_norm += torch.sum((shift_base**shift)**2)
     return weight_decay * 0.5 * l2_norm
 
 
@@ -825,7 +841,6 @@ def accuracy(output, target, topk=(1,)):
         correct = pred.eq(target.view(1, -1).expand_as(pred))
         res = []
         for k in topk:
-            print(correct[:k].shape)
             correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
             res.append(correct_k.mul_(100.0 / batch_size))
         return res

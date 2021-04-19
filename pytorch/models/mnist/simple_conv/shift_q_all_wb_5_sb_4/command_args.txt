@@ -1,0 +1,25 @@
+batch_size: 64
+desc: None
+epochs: 1
+evaluate: False
+log_interval: 100
+lr: 0.01
+model: 
+momentum: 0.0
+no_cuda: False
+optimizer: radam
+pretrained: False
+print_weights: True
+resume: 
+rounding: deterministic
+save_model: True
+seed: 1
+shift_base: 4
+shift_depth: 3
+shift_type: Q
+test_batch_size: 1000
+type: conv
+use_kernel: False
+weight_bits: 5
+weights: 
+workers: 1

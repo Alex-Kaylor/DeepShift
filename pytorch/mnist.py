@@ -236,6 +236,8 @@ def main():
                         help='description to append to model directory name')
     parser.add_argument('--use-kernel', type=lambda x:bool(distutils.util.strtobool(x)), default=False,
                         help='whether using custom shift kernel')
+    parser.add_argument('-sb', '--shift-base', type=int, default=2,
+                        help='base of the wegiht representation')
     args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
 
@@ -302,7 +304,7 @@ def main():
         model.load_state_dict(state_dict)
 
     if args.shift_depth > 0:
-        model, _ = convert_to_shift(model, args.shift_depth, args.shift_type, convert_all_linear=(args.type != 'linear'), convert_weights=True, use_kernel = args.use_kernel, use_cuda = use_cuda, rounding = args.rounding, weight_bits = args.weight_bits)
+        model, _ = convert_to_shift(model, args.shift_depth, args.shift_type, args.shift_base, convert_all_linear=(args.type != 'linear'), convert_weights=True, use_kernel = args.use_kernel, use_cuda = use_cuda, rounding = args.rounding, weight_bits = args.weight_bits)
         model = model.to(device)
     elif args.use_kernel and args.shift_depth == 0:
         model = convert_to_unoptimized(model)
@@ -355,7 +357,7 @@ def main():
             shift_label = "shift_ps"
     else:
         shift_label = "shift"
-
+    
     # name model sub-directory "shift_all" if all layers are converted to shift layers
     conv2d_layers_count = count_layer_type(model, nn.Conv2d)
     linear_layers_count = count_layer_type(model, nn.Linear)
@@ -366,7 +368,11 @@ def main():
 
     if (args.shift_depth > 0):
         shift_label += "_wb_%s" % (args.weight_bits)
-
+    
+    if (args.shift_base > 0):
+        shift_base = args.shift_base
+    shift_label += "_sb_%s" % (args.shift_base)
+    
     if (args.desc is not None and len(args.desc) > 0):
         desc_label = "_%s" % (args.desc)
     else:
@@ -377,7 +383,7 @@ def main():
 
     # if evaluating round weights to ensure that the results are due to powers of 2 weights
     if (args.evaluate):
-        model = round_shift_weights(model)
+        model = round_shift_weights(model, shift_base)
 
     model_summary = None
     try:
@@ -480,7 +486,7 @@ def main():
             train_log_csv.writerows(train_log)
 
         if (args.save_model):
-            model_rounded = round_shift_weights(model, clone=True)
+            model_rounded = round_shift_weights(model, shift_base, clone=True)
 
             torch.save(model_rounded, os.path.join(model_dir, "model.pth"))
             torch.save(model_rounded.state_dict(), os.path.join(model_dir, "weights.pth"))
@@ -490,7 +496,7 @@ def main():
   
     if (args.print_weights):
         if(model_rounded is None):
-            model_rounded = round_shift_weights(model, clone=True)
+            model_rounded = round_shift_weights(model, shift_base, clone=True)
 
         with open(os.path.join(model_dir, 'weights_log.txt'), 'w') as weights_log_file:
             with redirect_stdout(weights_log_file):

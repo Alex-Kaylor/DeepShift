@@ -1,0 +1,24 @@
+batch_size: 64
+desc: None
+epochs: 10
+evaluate: True
+log_interval: 10
+lr: 0.01
+model: C:\Users\mjzyl\OneDrive\Documents\GitHub\DeepShift\pytorch\models\mnist\simple_linear\shift_q_all_wb_5\model.pth
+momentum: 0.0
+no_cuda: False
+optimizer: SGD
+pretrained: False
+print_weights: True
+resume: 
+rounding: deterministic
+save_model: True
+seed: 1
+shift_depth: 0
+shift_type: PS
+test_batch_size: 1000
+type: linear
+use_kernel: False
+weight_bits: 5
+weights: 
+workers: 1

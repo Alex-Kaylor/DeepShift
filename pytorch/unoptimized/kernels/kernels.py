@@ -2,7 +2,8 @@ import torch
 try:
     import unoptimized_cuda
 except:
-    print("Unable to import CUDA unoptimized kernels")
+    pass
+    #print("Unable to import CUDA unoptimized kernels")
 
 def linear(input, weight, bias):
     out = torch.zeros([input.size(0), weight.size(0)], dtype=torch.float, device=torch.device('cuda:0'))

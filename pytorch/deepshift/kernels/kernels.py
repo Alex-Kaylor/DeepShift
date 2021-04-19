@@ -5,7 +5,8 @@ try:
     import deepshift_cuda
     import deepshift_cpu
 except:
-    print("Unable to import CPU and/or CUDA bit-wise shift kernels")
+    pass
+    #print("Unable to import CPU and/or CUDA bit-wise shift kernels")
 
 def linear(input, shift, sign, bias=None, conc_weight=None, use_cuda=True):
     if(use_cuda):   

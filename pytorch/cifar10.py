@@ -7,6 +7,7 @@ import warnings
 import sys
 import csv
 import distutils
+from distutils import util
 from contextlib import redirect_stdout
 from collections import OrderedDict
 import copy
@@ -31,6 +32,109 @@ from unoptimized.convert import convert_to_unoptimized
 import unoptimized
 
 import cifar10_models as models
+
+## MATT ADDITIONS ############################################################################
+
+import ctypes
+ctypes.cdll.LoadLibrary('caffe2_nvrtc.dll')
+
+import psutil
+import GPUtil
+import threading
+import pandas as pd 
+import datetime as dt
+from distutils import util
+
+is_training = False
+is_testing = False
+log_epoch = -1
+training_perf = pd.DataFrame()
+testing_perf = pd.DataFrame()
+pid = os.getpid()
+proc = psutil.Process(pid=pid)
+proc.cpu_affinity([0])                   # Limit number of CPUs used for processing
+model_name = ''
+target_accuracy = 0.99
+
+loc_performance_profile_training = r"C:\Users\mjzyl\OneDrive\Documents\GitHub\DeepShift\pytorch\performance_profiles_training.xlsx"
+loc_performance_accuracy_testing = r"C:\Users\mjzyl\OneDrive\Documents\GitHub\DeepShift\pytorch\performance_v_accuracy_testing.xlsx"
+
+def t_report_usage_training(name):
+    wait = 0.1
+    while True:
+        global training_perf, proc, epoch
+        gpu_util, gpu_mem = GPUtil.showUtilization()
+        training_perf = training_perf.append({
+            'Time' : time.ctime(time.time()),
+            'CPU%' : proc.cpu_percent()/len(proc.cpu_affinity()),
+            'GPU%' : sum(gpu_util),
+            'GPU_MEM%' : sum(gpu_mem),
+            'RAM%' : proc.memory_percent(),
+            'NumCPUs' : len(proc.cpu_affinity()),
+            'NumGPUs' : len(GPUtil.getGPUs()),
+            'Epoch' : log_epoch
+        }, ignore_index=True)
+        time.sleep(wait)
+        
+        global is_training
+        if not is_training:
+            break
+
+def report_usage_training():
+    t = threading.Thread(target=t_report_usage_training, args=(1,))
+    t.start()
+    return t
+
+def organize_performance_profile_training():
+    global training_perf, loc_performance_profile_training, model_name
+
+    training_perf_full = pd.read_excel(loc_performance_profile_training)
+    iterations = list(set(training_perf_full['IterationID']))
+    iterations.sort()
+
+    # Add an appropriate iteration ID to the full data
+    if len(iterations) == 0:
+        iterID = 0
+    else:
+        iterID = len(iterations)
+
+    # Add iteration-specific identifiers
+    training_perf['IterationID'] = iterID
+    training_perf['Dataset'] = 'CIFAR10'
+    training_perf['Model'] = model_name
+    
+    # Normalize time data
+    training_perf['Time'] = pd.to_datetime(training_perf['Time'])
+    time_start = training_perf.loc[0, 'Time']
+    training_perf['TimeAdjusted'] = training_perf['Time'].apply(lambda x: (x - time_start) + dt.datetime(1900, 1, 1))
+
+    # Merge iteration data with full data
+    training_perf_full = pd.concat([training_perf_full, training_perf])
+    training_perf_full.to_excel(loc_performance_profile_training, index=False)
+
+def organize_performance_accuracy_testing():
+    global testing_perf, loc_performance_accuracy_testing, model_name
+
+    testing_perf_full = pd.read_excel(loc_performance_accuracy_testing)
+    iterations = list(set(testing_perf_full['IterationID']))
+    iterations.sort()
+
+    # Add an appropriate iteration ID to the full data
+    if len(iterations) == 0:
+        iterID = 0
+    else:
+        iterID = len(iterations)
+
+    # Add iteration-specific identifiers
+    testing_perf['IterationID'] = iterID
+    testing_perf['Dataset'] = 'CIFAR10'
+    testing_perf['Model'] = model_name
+
+    # Merge iteration data with full data
+    testing_perf_full = pd.concat([testing_perf_full, testing_perf])
+    testing_perf_full.to_excel(loc_performance_accuracy_testing, index=False)   
+
+#############################################################################################
 
 '''
 Unfortunately, none of the pytorch repositories with ResNets on CIFAR10 provides an 
@@ -387,6 +491,7 @@ def main_worker(gpu, ngpus_per_node, args):
     else:
         desc_label = ""
 
+    global model_name # MZ addition
     model_name = '%s/%s%s' % (args.arch, shift_label, desc_label)
 
     if (args.save_model):
@@ -454,13 +559,26 @@ def main_worker(gpu, ngpus_per_node, args):
             test_log_csv.writerow(['test_loss', 'test_top1_acc', 'test_time'])
             test_log_csv.writerows(val_log)
     else:
+    
+            ###################################################################################################################################
+        # Start recording training usage metrics
+        global is_training, log_epoch
+        is_training = True
+        t = report_usage_training()        ###################################################################################################################################
+
         train_log = []
+        
+                ###################################################################################################################################
+        test_start = None
+        test_end = None        ###################################################################################################################################    
+
 
         with open(os.path.join(model_dir, "train_log.csv"), "w") as train_log_file:
             train_log_csv = csv.writer(train_log_file)
             train_log_csv.writerow(['epoch', 'train_loss', 'train_top1_acc', 'train_time', 'test_loss', 'test_top1_acc', 'test_time'])
 
         for epoch in range(args.start_epoch, args.epochs):
+            log_epoch = epoch
             if args.distributed:
                 train_sampler.set_epoch(epoch)
 
@@ -479,8 +597,25 @@ def main_worker(gpu, ngpus_per_node, args):
                 lr_scheduler.step()
 
             # evaluate on validation set
+            test_start = time.time()
             val_epoch_log = validate(val_loader, model, criterion, args)
+            test_end = time.time()
             acc1 = val_epoch_log[2]
+            
+            ###################################################################################################################################
+            # Record test-specific metrics
+            test_set_size = len(val_loader.dataset)
+            eval_time = test_end - test_start
+            
+            global testing_perf
+            testing_perf = testing_perf.append({
+                'TestSetSize' : test_set_size,
+                'EvaluationTime' : eval_time,
+                'Loss' : train_epoch_log[0],
+                'Correct%' : val_epoch_log[1],
+                'Epoch' : epoch
+            }, ignore_index=True)
+            ###################################################################################################################################
 
             # append to log
             with open(os.path.join(model_dir, "train_log.csv"), "a") as train_log_file:
@@ -523,6 +658,15 @@ def main_worker(gpu, ngpus_per_node, args):
                     'optimizer' : optimizer.state_dict(),
                     'lr_scheduler' : lr_scheduler,
                 }, is_best, model_dir)
+        ###################################################################################################################################
+        # Stop recording training usage metrics
+        is_training = False
+        t.join()
+        global training_perf
+        training_perf.to_excel(model_dir + '\\train_performance.xlsx', index=False)
+        organize_performance_profile_training()
+        organize_performance_accuracy_testing()
+        ###################################################################################################################################
 
     end_time = time.time()
     print("Total Time:", end_time - start_time )
@@ -566,7 +710,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args, shift_base):
         # compute output
         output = model(input)
         loss = criterion(output, target)
-
+        
         # measure accuracy and record loss
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
         losses.update(loss.item(), input.size(0))
@@ -695,7 +839,6 @@ def accuracy(output, target, topk=(1,)):
         _, pred = output.topk(maxk, 1, True, True)
         pred = pred.t()
         correct = pred.eq(target.view(1, -1).expand_as(pred))
-
         res = []
         for k in topk:
             correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)

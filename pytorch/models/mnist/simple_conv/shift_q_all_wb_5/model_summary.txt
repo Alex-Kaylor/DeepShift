@@ -1,0 +1,19 @@
+----------------------------------------------------------------
+        Layer (type)               Output Shape         Param #
+================================================================
+      Conv2dShiftQ-1           [-1, 20, 24, 24]             520
+      Conv2dShiftQ-2             [-1, 50, 8, 8]          25,050
+      LinearShiftQ-3                  [-1, 500]         400,500
+      LinearShiftQ-4                   [-1, 10]           5,010
+================================================================
+Total params: 431,080
+Trainable params: 431,080
+Non-trainable params: 0
+----------------------------------------------------------------
+Input size (MB): 0.00
+Forward/backward pass size (MB): 0.12
+Params size (MB): 1.64
+Estimated Total Size (MB): 1.76
+----------------------------------------------------------------
+
+WARNING: The summary function reports duplicate parameters for multi-GPU case

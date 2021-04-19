@@ -10,3 +10,5 @@ cd -
 cd ./deepshift/kernels/cuda
 python setup.py install
 cd -
+
+$SHELL

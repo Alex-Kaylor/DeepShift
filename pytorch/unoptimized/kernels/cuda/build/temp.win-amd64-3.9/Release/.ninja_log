@@ -1,0 +1,3 @@
+# ninja log v5
+5	6645	6391792853103828	C:/Users/mjzyl/OneDrive/Documents/GitHub/DeepShift/pytorch/unoptimized/kernels/cuda/build/temp.win-amd64-3.9/Release/unoptimized_cuda.obj	9e9ce64872fe2fbd
+3	22637	6391797111356427	C:/Users/mjzyl/OneDrive/Documents/GitHub/DeepShift/pytorch/unoptimized/kernels/cuda/build/temp.win-amd64-3.9/Release/unoptimized.obj	187a81d22c7ff319

@@ -1,0 +1,20 @@
+----------------------------------------------------------------
+        Layer (type)               Output Shape         Param #
+================================================================
+      LinearShiftQ-1                  [-1, 512]         401,920
+           Dropout-2                  [-1, 512]               0
+      LinearShiftQ-3                  [-1, 512]         262,656
+           Dropout-4                  [-1, 512]               0
+      LinearShiftQ-5                   [-1, 10]           5,130
+================================================================
+Total params: 669,706
+Trainable params: 669,706
+Non-trainable params: 0
+----------------------------------------------------------------
+Input size (MB): 0.00
+Forward/backward pass size (MB): 0.02
+Params size (MB): 2.55
+Estimated Total Size (MB): 2.57
+----------------------------------------------------------------
+
+WARNING: The summary function reports duplicate parameters for multi-GPU case

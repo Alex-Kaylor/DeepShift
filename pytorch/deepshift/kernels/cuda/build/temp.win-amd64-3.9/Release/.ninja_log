@@ -1,0 +1,5 @@
+# ninja log v5
+0	6678	6391797339690793	C:/Users/mjzyl/OneDrive/Documents/GitHub/DeepShift/pytorch/deepshift/kernels/cuda/build/temp.win-amd64-3.9/Release/shift_cuda.obj	dca6f85969a0dccc
+4	26577	6391797538531633	C:/Users/mjzyl/OneDrive/Documents/GitHub/DeepShift/pytorch/deepshift/kernels/cuda/build/temp.win-amd64-3.9/Release/shift.obj	716445887f95e440
+1	6497	6391797641868779	C:/Users/mjzyl/OneDrive/Documents/GitHub/DeepShift/pytorch/deepshift/kernels/cuda/build/temp.win-amd64-3.9/Release/unoptimized_cuda.obj	e3b4dc89e0401c0e
+3	22239	6391797799119295	C:/Users/mjzyl/OneDrive/Documents/GitHub/DeepShift/pytorch/deepshift/kernels/cuda/build/temp.win-amd64-3.9/Release/unoptimized_cuda_kernel.obj	cbc3ca4ebdf14128

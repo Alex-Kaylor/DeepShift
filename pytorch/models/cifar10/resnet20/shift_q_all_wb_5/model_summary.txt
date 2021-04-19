@@ -1,0 +1,66 @@
+----------------------------------------------------------------
+        Layer (type)               Output Shape         Param #
+================================================================
+      Conv2dShiftQ-1           [-1, 16, 32, 32]             432
+       BatchNorm2d-2           [-1, 16, 32, 32]              64
+      Conv2dShiftQ-3           [-1, 16, 32, 32]           2,304
+       BatchNorm2d-4           [-1, 16, 32, 32]              64
+      Conv2dShiftQ-5           [-1, 16, 32, 32]           2,304
+       BatchNorm2d-6           [-1, 16, 32, 32]              64
+        BasicBlock-7           [-1, 16, 32, 32]               0
+      Conv2dShiftQ-8           [-1, 16, 32, 32]           2,304
+       BatchNorm2d-9           [-1, 16, 32, 32]              64
+     Conv2dShiftQ-10           [-1, 16, 32, 32]           2,304
+      BatchNorm2d-11           [-1, 16, 32, 32]              64
+       BasicBlock-12           [-1, 16, 32, 32]               0
+     Conv2dShiftQ-13           [-1, 16, 32, 32]           2,304
+      BatchNorm2d-14           [-1, 16, 32, 32]              64
+     Conv2dShiftQ-15           [-1, 16, 32, 32]           2,304
+      BatchNorm2d-16           [-1, 16, 32, 32]              64
+       BasicBlock-17           [-1, 16, 32, 32]               0
+     Conv2dShiftQ-18           [-1, 32, 16, 16]           4,608
+      BatchNorm2d-19           [-1, 32, 16, 16]             128
+     Conv2dShiftQ-20           [-1, 32, 16, 16]           9,216
+      BatchNorm2d-21           [-1, 32, 16, 16]             128
+      LambdaLayer-22           [-1, 32, 16, 16]               0
+       BasicBlock-23           [-1, 32, 16, 16]               0
+     Conv2dShiftQ-24           [-1, 32, 16, 16]           9,216
+      BatchNorm2d-25           [-1, 32, 16, 16]             128
+     Conv2dShiftQ-26           [-1, 32, 16, 16]           9,216
+      BatchNorm2d-27           [-1, 32, 16, 16]             128
+       BasicBlock-28           [-1, 32, 16, 16]               0
+     Conv2dShiftQ-29           [-1, 32, 16, 16]           9,216
+      BatchNorm2d-30           [-1, 32, 16, 16]             128
+     Conv2dShiftQ-31           [-1, 32, 16, 16]           9,216
+      BatchNorm2d-32           [-1, 32, 16, 16]             128
+       BasicBlock-33           [-1, 32, 16, 16]               0
+     Conv2dShiftQ-34             [-1, 64, 8, 8]          18,432
+      BatchNorm2d-35             [-1, 64, 8, 8]             256
+     Conv2dShiftQ-36             [-1, 64, 8, 8]          36,864
+      BatchNorm2d-37             [-1, 64, 8, 8]             256
+      LambdaLayer-38             [-1, 64, 8, 8]               0
+       BasicBlock-39             [-1, 64, 8, 8]               0
+     Conv2dShiftQ-40             [-1, 64, 8, 8]          36,864
+      BatchNorm2d-41             [-1, 64, 8, 8]             256
+     Conv2dShiftQ-42             [-1, 64, 8, 8]          36,864
+      BatchNorm2d-43             [-1, 64, 8, 8]             256
+       BasicBlock-44             [-1, 64, 8, 8]               0
+     Conv2dShiftQ-45             [-1, 64, 8, 8]          36,864
+      BatchNorm2d-46             [-1, 64, 8, 8]             256
+     Conv2dShiftQ-47             [-1, 64, 8, 8]          36,864
+      BatchNorm2d-48             [-1, 64, 8, 8]             256
+       BasicBlock-49             [-1, 64, 8, 8]               0
+     LinearShiftQ-50                   [-1, 10]             650
+           ResNet-51                   [-1, 10]               0
+================================================================
+Total params: 271,098
+Trainable params: 271,098
+Non-trainable params: 0
+----------------------------------------------------------------
+Input size (MB): 0.01
+Forward/backward pass size (MB): 3.63
+Params size (MB): 1.03
+Estimated Total Size (MB): 4.67
+----------------------------------------------------------------
+
+WARNING: The summary function reports duplicate parameters for multi-GPU case

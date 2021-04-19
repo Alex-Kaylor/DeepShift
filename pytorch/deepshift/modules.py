@@ -18,7 +18,7 @@ class LinearShiftFunction(Function):
     # Note that both forward and backward are @staticmethods
     @staticmethod
     # bias is an optional argument
-    def forward(ctx, input, shift, sign, shift_base, bias=None, conc_weight=None, use_kernel=False, use_cuda=True, rounding='deterministic', shift_range=(-14, 0)):
+    def forward(ctx, input, shift, sign, shift_base=2, bias=None, conc_weight=None, use_kernel=False, use_cuda=True, rounding='deterministic', shift_range=(-14, 0)):
         fraction_bits = 16
         integer_bit = 16
         if use_kernel:
@@ -73,7 +73,7 @@ class LinearShiftFunction(Function):
         return grad_input, grad_shift, grad_sign, grad_bias, None, None, None
 
 class LinearShift(nn.Module):
-    def __init__(self, in_features, out_features, shift_base, bias=True, check_grad=False, freeze_sign=False, use_kernel=False, use_cuda=True, rounding='deterministic', weight_bits=5):
+    def __init__(self, in_features, out_features, shift_base=2, bias=True, check_grad=False, freeze_sign=False, use_kernel=False, use_cuda=True, rounding='deterministic', weight_bits=5):
         super(LinearShift, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
@@ -140,7 +140,7 @@ class Conv2dShiftFunction(Function):
     # Note that both forward and backward are @staticmethods
     @staticmethod
     # bias is an optional argument
-    def forward(ctx, input, shift, sign, shift_base, bias=None, conc_weight=None, stride=1, padding=0, dilation=1, groups=1, use_kernel=False, use_cuda=False, rounding='deterministic', shift_range=(-14,0)):
+    def forward(ctx, input, shift, sign, shift_base=2, bias=None, conc_weight=None, stride=1, padding=0, dilation=1, groups=1, use_kernel=False, use_cuda=False, rounding='deterministic', shift_range=(-14,0)):
         fraction_bits = 16
         integer_bits = 16
 

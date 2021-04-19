@@ -8,7 +8,7 @@ import deepshift.modules
 import deepshift.modules_q
 import deepshift.utils as utils
 
-def convert_to_shift(model, shift_depth, shift_type, shift_base, convert_all_linear=True, convert_weights=False, freeze_sign = False, use_kernel=False, use_cuda=True, rounding='deterministic', weight_bits=5):
+def convert_to_shift(model, shift_depth, shift_type, shift_base=2, convert_all_linear=True, convert_weights=False, freeze_sign = False, use_kernel=False, use_cuda=True, rounding='deterministic', weight_bits=5):
     conversion_count = 0
     for name, module in reversed(model._modules.items()):
         if len(list(module.children())) > 0:
@@ -77,7 +77,7 @@ def convert_to_shift(model, shift_depth, shift_type, shift_base, convert_all_lin
 
     return model, conversion_count
 
-def round_shift_weights(model, shift_base, clone=False):
+def round_shift_weights(model, shift_base=2, clone=False):
     if(clone):
         model = copy.deepcopy(model)
 

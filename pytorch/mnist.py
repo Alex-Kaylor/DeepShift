@@ -279,7 +279,7 @@ def main():
 
     # if evaluating round weights to ensure that the results are due to powers of 2 weights
     if (args.evaluate):
-        model = round_shift_weights(model, base)
+        model = round_shift_weights(model, shift_base)
 
     model_summary = None
     try:
@@ -350,7 +350,7 @@ def main():
 
     if (args.print_weights):
         if(model_rounded is None):
-            model_rounded = round_shift_weights(model, clone=True)
+            model_rounded = round_shift_weights(model, shift_base, clone=True)
 
         with open(os.path.join(model_dir, 'weights_log.txt'), 'w') as weights_log_file:
             with redirect_stdout(weights_log_file):

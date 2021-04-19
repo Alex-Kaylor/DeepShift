@@ -128,6 +128,8 @@ parser.add_argument('--desc', type=str, default=None,
 parser.add_argument('--use-kernel', type=lambda x:bool(distutils.util.strtobool(x)), default=False,
                     help='whether using custom shift kernel')
 
+parser.add_argument('-sb', '--shift-base', type=int, default=2,
+                    help='base of the wegiht representation')
 
 best_acc1 = 0
 
@@ -237,7 +239,7 @@ def main_worker(gpu, ngpus_per_node, args):
             model.load_state_dict(new_state_dict)
 
     if args.shift_depth > 0:
-        model, _ = convert_to_shift(model, args.shift_depth, args.shift_type, convert_weights = (args.pretrained != "none" or args.weights), use_kernel = args.use_kernel, rounding = args.rounding, weight_bits = args.weight_bits)
+        model, _ = convert_to_shift(model, args.shift_depth, args.shift_type, args.shift_base, convert_weights = (args.pretrained != "none" or args.weights), use_kernel = args.use_kernel, rounding = args.rounding, weight_bits = args.weight_bits)
     elif args.use_kernel and args.shift_depth == 0:
         model = convert_to_unoptimized(model)
 
@@ -345,7 +347,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     # if evaluating round weights to ensure that the results are due to powers of 2 weights
     if (args.evaluate):
-        model = round_shift_weights(model)
+        model = round_shift_weights(model, shift_base)
 
     cudnn.benchmark = True
 
@@ -375,7 +377,11 @@ def main_worker(gpu, ngpus_per_node, args):
 
     if (args.shift_depth > 0):
         shift_label += "_wb_%s" % (args.weight_bits)
-
+    if (args.shift_base > 0):
+        shift_base = args.shift_base
+    else:
+        shift_base = 2
+    shift_label += "_sb_%s" % (args.shift_base)
     if (args.desc is not None and len(args.desc) > 0):
         desc_label = "_%s" % (args.desc)
     else:
@@ -468,7 +474,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
             # train for one epoch
             print("current lr ", [param['lr'] for param in  optimizer.param_groups])
-            train_epoch_log = train(train_loader, model, criterion, optimizer, epoch, args)
+            train_epoch_log = train(train_loader, model, criterion, optimizer, epoch, args, shift_base)
             if (args.lr_schedule):
                 lr_scheduler.step()
 
@@ -502,7 +508,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 if is_best:
                     try:
                         if (args.save_model):
-                            model_rounded = round_shift_weights(model, clone=True)
+                            model_rounded = round_shift_weights(model, shift_base, clone=True)
 
                             torch.save(model_rounded.state_dict(), os.path.join(model_dir, "weights.pth"))
                             torch.save(model_rounded, os.path.join(model_dir, "model.pth"))
@@ -523,7 +529,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     if (args.print_weights):
         if(model_rounded is None):
-            model_rounded = round_shift_weights(model, clone=True)
+            model_rounded = round_shift_weights(model, shift_base, clone=True)
 
         with open(os.path.join(model_dir, 'weights_log.txt'), 'w') as weights_log_file:
             with redirect_stdout(weights_log_file):
@@ -536,7 +542,7 @@ def main_worker(gpu, ngpus_per_node, args):
                     print("")
 
 
-def train(train_loader, model, criterion, optimizer, epoch, args):
+def train(train_loader, model, criterion, optimizer, epoch, args, shift_base):
     batch_time = AverageMeter('Time', ':6.3f')
     data_time = AverageMeter('Data', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
@@ -570,7 +576,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         # compute gradient and do optimizer step
         optimizer.zero_grad()
         if(args.weight_decay > 0):
-            loss += shift_l2_norm(optimizer, args.weight_decay)
+            loss += shift_l2_norm(optimizer, shift_base, args.weight_decay)
         loss.backward()
         optimizer.step()
 
@@ -625,11 +631,11 @@ def validate(val_loader, model, criterion, args):
 
     return (losses.avg, top1.avg.cpu().numpy(), batch_time.avg)
 
-def shift_l2_norm(opt, weight_decay):
+def shift_l2_norm(opt, shift_base, weight_decay):
     shift_params = opt.param_groups[2]['params']
     l2_norm = 0
     for shift in shift_params:
-        l2_norm += torch.sum((2**shift)**2)
+        l2_norm += torch.sum((shift_base**shift)**2)
     return weight_decay * 0.5 * l2_norm
 
 

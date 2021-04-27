@@ -50,8 +50,8 @@ proc = psutil.Process(pid=pid)
 proc.cpu_affinity([0])                   # Limit number of CPUs used for processing
 model_name = ''
 
-loc_performance_profile_training = r"/home/alex/DeepShift/pytorch/performance_profiles_training.xlsx"
-loc_performance_accuracy_testing = r"/home/alex/DeepShift/pytorch/performance_v_accuracy_testing.xlsx"
+loc_performance_profile_training = r"/content/DeepShift/pytorch/performance_profiles_training.xlsx"
+loc_performance_accuracy_testing = r"/content/DeepShift/pytorch/performance_v_accuracy_testing.xlsx"
 
 def t_report_usage_training(name):
     wait = 0.1
@@ -822,7 +822,7 @@ def accuracy(output, target, topk=(1,)):
         correct = pred.eq(target.view(1, -1).expand_as(pred))
         res = []
         for k in topk:
-            print(correct[:k].shape)
+            #print(correct[:k].shape)
             correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
             res.append(correct_k.mul_(100.0 / batch_size))
         return res
